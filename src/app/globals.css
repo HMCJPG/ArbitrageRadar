@@ -1,0 +1,100 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * "Cyberpunk Boutique" design tokens.
+ * Deep slate canvas, hairline borders, emerald (acceleration) and violet
+ * (velocity) neon accents. The app is dark-mode-only, so the dark palette is
+ * applied to :root directly.
+ */
+@layer base {
+  :root {
+    --background: 224 47% 4%;
+    --foreground: 210 40% 98%;
+
+    --card: 222 44% 7%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222 47% 6%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 158 84% 45%; /* emerald */
+    --primary-foreground: 224 71% 4%;
+
+    --secondary: 222 30% 14%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 222 30% 12%;
+    --muted-foreground: 217 14% 58%;
+
+    --accent: 263 70% 60%; /* violet */
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 222 28% 16%;
+    --input: 222 28% 16%;
+    --ring: 158 84% 45%;
+
+    /* Brand signal channels */
+    --velocity: 263 80% 66%; /* violet  — high velocity */
+    --acceleration: 158 84% 48%; /* emerald — positive acceleration */
+    --danger: 0 80% 63%; /* red     — negative / fading */
+
+    --radius: 0.85rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1, "ss01" 1;
+    min-height: 100vh;
+    /* Ambient neon glow backdrop. */
+    background-image:
+      radial-gradient(
+        60rem 40rem at 12% -10%,
+        hsl(263 70% 60% / 0.12),
+        transparent 60%
+      ),
+      radial-gradient(
+        55rem 38rem at 105% 8%,
+        hsl(158 84% 45% / 0.1),
+        transparent 55%
+      );
+    background-attachment: fixed;
+  }
+}
+
+@layer utilities {
+  /* Hide scrollbars on horizontal tab/chip rails while keeping scroll. */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /* Subtle hairline divider used across panels. */
+  .hairline {
+    @apply border border-white/5;
+  }
+
+  .text-glow-emerald {
+    text-shadow: 0 0 16px hsl(158 84% 48% / 0.55);
+  }
+  .text-glow-violet {
+    text-shadow: 0 0 16px hsl(263 80% 66% / 0.55);
+  }
+}

@@ -9,6 +9,7 @@ import {
   SearchX,
 } from "lucide-react";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { FilterPanel } from "@/components/dashboard/filter-panel";
@@ -20,9 +21,16 @@ import type {
   SortKey,
 } from "@/types/trends";
 
+type DataSource = "live-google-trends" | "seed";
+
 interface TrendsResponse {
   data: EnrichedTrendItem[];
-  meta: { generatedAt: string; count: number };
+  meta: {
+    generatedAt: string;
+    count: number;
+    dataSource: DataSource;
+    liveItemCount: number;
+  };
 }
 
 /** Resolve the numeric value a given sort key maps to. */
@@ -56,6 +64,8 @@ export default function DashboardPage() {
     "loading",
   );
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
+  const [dataSource, setDataSource] = useState<DataSource | null>(null);
+  const [liveItemCount, setLiveItemCount] = useState(0);
 
   // Filter / sort state.
   const [platform, setPlatform] = useState<PlatformFilter>("all");
@@ -73,6 +83,8 @@ export default function DashboardPage() {
       const json: TrendsResponse = await res.json();
       setItems(json.data);
       setGeneratedAt(json.meta?.generatedAt ?? null);
+      setDataSource(json.meta?.dataSource ?? null);
+      setLiveItemCount(json.meta?.liveItemCount ?? 0);
       setStatus("ready");
     } catch (error) {
       console.error("Failed to load trends:", error);
@@ -122,6 +134,24 @@ export default function DashboardPage() {
         </div>
 
         <div className="flex items-center gap-3">
+          {status === "ready" && dataSource ? (
+            dataSource === "live-google-trends" ? (
+              <Badge variant="acceleration" title="Live demand signal from Google Trends via SerpApi">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[hsl(var(--acceleration))] opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-[hsl(var(--acceleration))]" />
+                </span>
+                LIVE · Google Trends ({liveItemCount}/{items.length})
+              </Badge>
+            ) : (
+              <Badge
+                variant="muted"
+                title="No SERPAPI_KEY set — showing the curated demo dataset"
+              >
+                DEMO DATA
+              </Badge>
+            )
+          ) : null}
           {generatedAt ? (
             <span className="hidden text-xs text-muted-foreground sm:inline">
               Updated{" "}
@@ -212,11 +242,22 @@ export default function DashboardPage() {
 
       {/* Footer */}
       <footer className="mt-10 border-t border-border pt-6 text-center text-xs text-muted-foreground">
-        ArbitrageRadar · Demo dataset seeded locally. Swap{" "}
-        <code className="rounded bg-muted px-1 py-0.5 font-mono">
-          src/lib/mockData.ts
-        </code>{" "}
-        for live Netrows / Bright Data feeds to go production.
+        ArbitrageRadar ·{" "}
+        {dataSource === "live-google-trends" ? (
+          <>
+            Live demand signal: real Google Trends interest-over-time via
+            SerpApi.
+          </>
+        ) : (
+          <>
+            Set{" "}
+            <code className="rounded bg-muted px-1 py-0.5 font-mono">
+              SERPAPI_KEY
+            </code>{" "}
+            to pull real Google Trends data; currently showing the curated demo
+            dataset.
+          </>
+        )}
       </footer>
     </main>
   );

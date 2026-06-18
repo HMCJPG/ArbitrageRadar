@@ -251,78 +251,38 @@ const SEED_SPECS: SeedSpec[] = [
 /*  Public seeding API                                                        */
 /* -------------------------------------------------------------------------- */
 
-/** Materialize the seed specs into fully-formed {@link TrendItem}s. */
-function seedTrends(): TrendItem[] {
-  return SEED_SPECS.map((spec) => {
-    const historicalDataPoints = toSeries(spec.volumes);
-    return {
-      id: spec.id,
-      title: spec.title,
-      image: spec.image,
-      category: spec.category,
-      sourcePlatform: spec.sourcePlatform,
-      currentVolume: spec.volumes[spec.volumes.length - 1],
-      pricePoint: spec.pricePoint,
-      keywords: spec.keywords,
-      historicalDataPoints,
-    };
-  });
-}
-
-/** Simulate realistic network latency so the call path matches production. */
-function simulateLatency(ms = 120): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+/**
+ * Materialize the seed specs into fully-formed {@link TrendItem}s.
+ *
+ * This is the real product catalog (titles, images, categories, prices,
+ * keywords). When a live data key is configured, the demand *series* of each
+ * item is replaced with real Google Trends data in `src/lib/ingest.ts`; the
+ * mock `volumes` here are the offline fallback for demo deployments.
+ */
+export function seedCatalog(): TrendItem[] {
+  return SEED_SPECS.map((spec) => ({
+    id: spec.id,
+    title: spec.title,
+    image: spec.image,
+    category: spec.category,
+    sourcePlatform: spec.sourcePlatform,
+    currentVolume: spec.volumes[spec.volumes.length - 1],
+    pricePoint: spec.pricePoint,
+    keywords: spec.keywords,
+    historicalDataPoints: toSeries(spec.volumes),
+  }));
 }
 
 /**
- * The single ingestion entry point used by the API route.
- *
- * ── MOCK MODE (current) ──────────────────────────────────────────────────
- * Returns the locally seeded dataset after a tiny simulated delay.
- *
- * ── LIVE MODE ────────────────────────────────────────────────────────────
- * Delete the two mock lines below and uncomment / adapt one of the provider
- * blocks. Each provider returns its own schema, so map it into `TrendItem`.
+ * The primary search keyword used to query a live trend provider for a product.
+ * Falls back to the title when no keywords are present.
  */
-export async function fetchRawTrends(): Promise<TrendItem[]> {
-  await simulateLatency();
-  return seedTrends();
-
-  /* ----------------------------------------------------------------------
-   * EXAMPLE — Netrows social trend SERP (TikTok / Instagram):
-   *
-   *   const res = await fetch("https://api.netrows.com/v1/social/trending", {
-   *     headers: { Authorization: `Bearer ${process.env.NETROWS_API_KEY}` },
-   *     // Vercel ISR: cache the upstream response for 30 minutes.
-   *     next: { revalidate: 1800 },
-   *   });
-   *   if (!res.ok) throw new Error(`Netrows error ${res.status}`);
-   *   const json = await res.json();
-   *   return json.results.map(mapNetrowsItem);
-   *
-   * EXAMPLE — Bright Data Amazon Best-Sellers SERP:
-   *
-   *   const res = await fetch("https://api.brightdata.com/serp/amazon/bestsellers", {
-   *     method: "POST",
-   *     headers: {
-   *       Authorization: `Bearer ${process.env.BRIGHTDATA_API_KEY}`,
-   *       "Content-Type": "application/json",
-   *     },
-   *     body: JSON.stringify({ category: "all", country: "US" }),
-   *     next: { revalidate: 1800 },
-   *   });
-   *   if (!res.ok) throw new Error(`Bright Data error ${res.status}`);
-   *   const json = await res.json();
-   *   return json.products.map(mapBrightDataItem);
-   *
-   * EXAMPLE — TikTok Creative Center trending products:
-   *
-   *   const res = await fetch(
-   *     "https://ads.tiktok.com/creative_radar_api/v1/popular_trend/list",
-   *     { headers: { "x-token": process.env.TIKTOK_CC_TOKEN! }, next: { revalidate: 1800 } },
-   *   );
-   *
-   * Each `map<Provider>Item` function is responsible for translating the
-   * upstream record (and ideally a real historical series) into a TrendItem.
-   * -------------------------------------------------------------------- */
+export function trendsQueryFor(item: TrendItem): string {
+  return item.keywords[0] ?? item.title;
 }
+
+/*
+ * Ingestion (mock vs. live) is orchestrated in `src/lib/ingest.ts`, which calls
+ * the real Google Trends provider in `src/lib/providers/serpapiGoogleTrends.ts`
+ * when `SERPAPI_KEY` is set and falls back to this seeded catalog otherwise.
+ */

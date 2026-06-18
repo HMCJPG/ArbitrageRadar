@@ -18,7 +18,7 @@
 import { NextResponse } from "next/server";
 
 import { calculateMetrics } from "@/lib/derivatives";
-import { fetchRawTrends } from "@/lib/mockData";
+import { ingestTrends } from "@/lib/ingest";
 import type {
   EnrichedTrendItem,
   PlatformFilter,
@@ -82,8 +82,14 @@ export async function GET(request: Request) {
     const sort = parseSort(searchParams.get("sort"));
     const order = searchParams.get("order") === "asc" ? "asc" : "desc";
 
-    // 1. Ingest raw records (mock seeding engine today; real providers later).
-    const rawItems = await fetchRawTrends();
+    // 1. Ingest raw records — real Google Trends data when SERPAPI_KEY is set,
+    //    otherwise the curated seed catalog (see src/lib/ingest.ts).
+    const { items: rawItems, source, liveItemCount, warnings } =
+      await ingestTrends();
+
+    if (warnings.length > 0) {
+      console.warn("[/api/trends] ingest warnings:", warnings);
+    }
 
     // 2. Enrich every item with first- and second-derivative analytics.
     let items: EnrichedTrendItem[] = rawItems.map((item) => ({
@@ -126,6 +132,10 @@ export async function GET(request: Request) {
           query: query || null,
           sort,
           order,
+          // Honest provenance: "live-google-trends" or "seed", plus how many
+          // items actually came back live this request.
+          dataSource: source,
+          liveItemCount,
           generatedAt: new Date().toISOString(),
         },
       },

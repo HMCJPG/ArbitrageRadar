@@ -45,21 +45,51 @@ npm run build
 npm start
 ```
 
-## 🔌 Going live (real data)
+## 🔌 Live data (real Google Trends)
 
-The app reads everything through a single ingestion function:
-[`fetchRawTrends()`](src/lib/mockData.ts). Replace its mock body with real
-`fetch()` calls to your providers (Netrows, Bright Data Amazon SERP, TikTok
-Creative Center) and map each payload into the `TrendItem` interface — inline
-examples are provided in that file. Nothing else in the codebase changes.
+The app ships with a **working live integration** against the
+[SerpApi Google Trends API](https://serpapi.com/google-trends-api). Google
+Trends is used because it returns a real *time series* (interest over time),
+which is exactly what the velocity / acceleration engine consumes — most
+product APIs (Amazon, TikTok) only return a current snapshot.
 
-Set provider tokens as environment variables (e.g. on Vercel):
+**Turn it on:**
 
-```
-NETROWS_API_KEY=...
-BRIGHTDATA_API_KEY=...
-TIKTOK_CC_TOKEN=...
-```
+1. Grab a key at <https://serpapi.com/manage-api-key> (free tier = 100
+   searches/month).
+2. Add it to the environment:
+   - Local: copy `.env.example` to `.env.local` and set `SERPAPI_KEY=...`
+   - Vercel: Project → Settings → Environment Variables → `SERPAPI_KEY`
+3. Restart / redeploy. The header badge flips from **DEMO DATA** to
+   **LIVE · Google Trends**, and each card's 7-day vector is the real
+   interest-over-time for that product's primary keyword.
+
+**How it works (no key required to run):**
+
+| File | Role |
+| --- | --- |
+| [`src/lib/providers/serpapiGoogleTrends.ts`](src/lib/providers/serpapiGoogleTrends.ts) | Real HTTP call to SerpApi + response mapping |
+| [`src/lib/ingest.ts`](src/lib/ingest.ts) | Picks live vs. seed; per-item fallback |
+| [`src/lib/mockData.ts`](src/lib/mockData.ts) | Curated product catalog + offline series |
+
+When `SERPAPI_KEY` is **unset** (or every live fetch fails), the app
+automatically serves the curated demo dataset so it never breaks. The API
+response reports provenance honestly in `meta.dataSource`
+(`"live-google-trends"` or `"seed"`) and `meta.liveItemCount`.
+
+> **Note on units & quota.** In live mode `volume` is Google Trends *search
+> interest* (a 0–100 relative index), not raw sales — a legitimate real demand
+> signal that the derivative math handles unchanged. Live requests are one
+> SerpApi search per product and are cached for 6h (tunable in the provider) to
+> conserve the free-tier quota.
+
+### Other providers (Amazon / TikTok)
+
+Real Amazon (Bright Data, Rainforest API) and TikTok endpoints return a
+*current snapshot*, not history — so computing velocity from them requires
+storing daily snapshots yourself (a database + a daily cron) and accumulating a
+window. To add one, write a sibling module under `src/lib/providers/` that
+returns `HistoricalDataPoint[]` and call it from `src/lib/ingest.ts`.
 
 ## 🗂 Project structure
 
@@ -74,8 +104,11 @@ src/
 │  ├─ dashboard/            # StatsBar, FilterPanel, ProductCard, Sparkline
 │  └─ ui/                   # shadcn/ui primitives
 ├─ lib/
+│  ├─ providers/
+│  │  └─ serpapiGoogleTrends.ts  # LIVE Google Trends provider (SerpApi)
 │  ├─ derivatives.ts        # velocity / acceleration / momentum
-│  ├─ mockData.ts           # data seeding engine
+│  ├─ ingest.ts             # live-vs-seed orchestrator
+│  ├─ mockData.ts           # curated catalog + offline series
 │  └─ utils.ts              # cn() + formatters
 └─ types/
    └─ trends.ts             # strict domain interfaces
